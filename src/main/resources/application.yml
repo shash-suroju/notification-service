@@ -1,0 +1,70 @@
+spring:
+  application:
+    name: notification-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/notify
+    username: notify
+    password: notify
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc.time_zone: UTC
+        format_sql: true
+    show-sql: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+
+server:
+  error:
+    include-message: always
+    include-binding-errors: always
+
+notify:
+  dispatcher:
+    auto-start: true
+    tick-interval-ms: 100
+    base-quantum: 20
+    lease-duration-seconds: 60
+    reaper-interval-seconds: 30
+  pools:
+    email:
+      core-size: 8
+      max-size: 8
+      queue-capacity: 200
+    sms:
+      core-size: 4
+      max-size: 4
+      queue-capacity: 100
+    push:
+      core-size: 8
+      max-size: 8
+      queue-capacity: 200
+    in-app:
+      core-size: 2
+      max-size: 2
+      queue-capacity: 100
+  retry:
+    base-delay-ms: 2000
+    max-delay-ms: 300000
+    default-max-attempts: 5
+  mock-providers:
+    email:
+      latency-ms: 50
+      transient-failure-rate: 0.10
+      permanent-failure-rate: 0.02
+    sms:
+      latency-ms: 80
+      transient-failure-rate: 0.15
+      permanent-failure-rate: 0.02
+    push:
+      latency-ms: 30
+      transient-failure-rate: 0.05
+      permanent-failure-rate: 0.01
