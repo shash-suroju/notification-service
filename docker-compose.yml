@@ -1,0 +1,29 @@
+# Local development database.
+#
+#   docker compose up -d      # start (data persists in the notify-pgdata volume)
+#   docker compose down       # stop
+#   docker compose down -v    # stop and wipe all data (Flyway re-runs from V001 next start)
+#
+# Published on host port 5433, not 5432, so it never collides with a PostgreSQL already
+# installed on the machine. application.yml defaults to this port.
+# Tests do not use this — they start their own container via Testcontainers.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: notify-postgres
+    environment:
+      POSTGRES_DB: notify
+      POSTGRES_USER: notify
+      POSTGRES_PASSWORD: notify
+    ports:
+      - "5433:5432"
+    volumes:
+      - notify-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notify -d notify"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+volumes:
+  notify-pgdata:

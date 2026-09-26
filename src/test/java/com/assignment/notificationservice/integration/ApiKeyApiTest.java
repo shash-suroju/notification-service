@@ -8,12 +8,14 @@ import com.assignment.notificationservice.models.enums.ApiKeyStatus;
 import com.assignment.notificationservice.support.TestTenant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -22,15 +24,18 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * API key lifecycle, plus authentication on the send API. {@code /api/v1/notifications}
- * has no controller yet, so a valid key yields 404 (authenticated, no route) and an
- * invalid one 401 — exactly the distinction these tests need.
+ * API key lifecycle, plus authentication on the send API. {@code GET /api/v1/notifications}
+ * (the sender's list endpoint) answers 200 for a valid key and 401 for anything else —
+ * exactly the distinction these tests need.
  */
 class ApiKeyApiTest extends BaseIntegrationTest {
 
     private static final String BASE = "/api/v1/tenant/api-keys";
     private static final String SEND_API = "/api/v1/notifications";
     private static final String SEED_ACME_API_KEY = "ntfy_acme1234_testkey12345678901234567890ab";
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     private TestTenant tenant;
 
@@ -89,7 +94,7 @@ class ApiKeyApiTest extends BaseIntegrationTest {
     @Test
     void revokedKeyCannotAuthenticate() {
         ApiKeyCreateResponse created = createKey(tenant, "short-lived").getBody();
-        assertThat(callSendApi(created.rawKey())).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(callSendApi(created.rawKey())).isEqualTo(HttpStatus.OK);
 
         as(tenant).exchange(BASE + "/" + created.id(), HttpMethod.DELETE, null, Void.class);
 
@@ -100,13 +105,21 @@ class ApiKeyApiTest extends BaseIntegrationTest {
     void validKeyAuthenticates() {
         ApiKeyCreateResponse created = createKey(tenant, "valid").getBody();
 
-        // Authenticated, but no send controller exists yet → 404, not 401.
-        assertThat(callSendApi(created.rawKey())).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(callSendApi(created.rawKey())).isEqualTo(HttpStatus.OK);
     }
 
     @Test
     void seededAcmeKeyAuthenticates() {
-        assertThat(callSendApi(SEED_ACME_API_KEY)).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(callSendApi(SEED_ACME_API_KEY)).isEqualTo(HttpStatus.OK);
+    }
+
+    @Test
+    void suspendedTenantsKey_stillAuthenticates_suspensionIsEnforcedOnSubmit() {
+        ApiKeyCreateResponse created = createKey(tenant, "suspended").getBody();
+        jdbcTemplate.update("UPDATE tenant SET status = 'SUSPENDED' WHERE id = ?", tenant.id());
+
+        // Reads still work; submits are refused with 403 (see IngestionValidationTest).
+        assertThat(callSendApi(created.rawKey())).isEqualTo(HttpStatus.OK);
     }
 
     @Test
@@ -142,7 +155,7 @@ class ApiKeyApiTest extends BaseIntegrationTest {
                 BASE + "/" + created.id(), HttpMethod.DELETE, null, Void.class);
 
         assertThat(res.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
-        assertThat(callSendApi(created.rawKey())).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(callSendApi(created.rawKey())).isEqualTo(HttpStatus.OK);
     }
 
     // ---- helpers ----

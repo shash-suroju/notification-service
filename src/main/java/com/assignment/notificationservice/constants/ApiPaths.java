@@ -19,6 +19,7 @@ public final class ApiPaths {
     public static final String TENANT_TEMPLATES = TENANT + "/templates";
     public static final String TENANT_CHANNELS = TENANT + "/channels";
     public static final String TENANT_API_KEYS = TENANT + "/api-keys";
+    public static final String TENANT_NOTIFICATIONS = TENANT + "/notifications";
 
     /** Send API (tenant backends, X-API-Key). */
     public static final String NOTIFICATIONS = API_V1 + "/notifications";

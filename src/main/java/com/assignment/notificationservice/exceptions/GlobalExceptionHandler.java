@@ -13,6 +13,8 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
+import org.springframework.web.bind.ServletRequestBindingException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
@@ -67,6 +69,57 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(SmsBodyTooLongException.class)
     public ProblemDetail handleSmsBodyTooLong(SmsBodyTooLongException ex) {
         return problem(HttpStatus.BAD_REQUEST, ex.getMessage(), "SMS Body Too Long");
+    }
+
+    // ---- ingestion ----
+
+    /** The recipient is intentionally not echoed back — it may be personal data. */
+    @ExceptionHandler(InvalidRecipientException.class)
+    public ProblemDetail handleInvalidRecipient(InvalidRecipientException ex) {
+        ProblemDetail pd = problem(HttpStatus.BAD_REQUEST, ex.getMessage(), "Invalid Recipient");
+        pd.setProperty("channel", ex.getChannel());
+        return pd;
+    }
+
+    @ExceptionHandler(IdempotencyKeyConflictException.class)
+    public ProblemDetail handleIdempotencyConflict(IdempotencyKeyConflictException ex) {
+        return problem(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), "Idempotency Key Conflict");
+    }
+
+    @ExceptionHandler(TenantSuspendedException.class)
+    public ProblemDetail handleTenantSuspended(TenantSuspendedException ex) {
+        return problem(HttpStatus.FORBIDDEN, ex.getMessage(), "Tenant Suspended");
+    }
+
+    @ExceptionHandler(ChannelDisabledException.class)
+    public ProblemDetail handleChannelDisabled(ChannelDisabledException ex) {
+        ProblemDetail pd = problem(HttpStatus.BAD_REQUEST, ex.getMessage(), "Channel Disabled");
+        pd.setProperty("channel", ex.getChannel());
+        return pd;
+    }
+
+    @ExceptionHandler(TemplateNotFoundException.class)
+    public ProblemDetail handleTemplateNotFound(TemplateNotFoundException ex) {
+        return problem(HttpStatus.BAD_REQUEST, ex.getMessage(), "Template Not Found");
+    }
+
+    @ExceptionHandler(InvalidScheduleTimeException.class)
+    public ProblemDetail handleInvalidScheduleTime(InvalidScheduleTimeException ex) {
+        return problem(HttpStatus.BAD_REQUEST, ex.getMessage(), "Invalid Schedule Time");
+    }
+
+    /** Missing required header (e.g. Idempotency-Key) → 400 naming the header. */
+    @Override
+    protected ResponseEntity<Object> handleServletRequestBindingException(ServletRequestBindingException ex,
+                                                                          HttpHeaders headers,
+                                                                          HttpStatusCode status,
+                                                                          WebRequest request) {
+        if (ex instanceof MissingRequestHeaderException missing) {
+            ProblemDetail pd = problem(HttpStatus.BAD_REQUEST,
+                    "Required header '" + missing.getHeaderName() + "' is missing", "Missing Required Header");
+            return ResponseEntity.badRequest().body(pd);
+        }
+        return super.handleServletRequestBindingException(ex, headers, status, request);
     }
 
     /** {@code @Valid} failures on request bodies: one entry per field in {@code fieldErrors}. */

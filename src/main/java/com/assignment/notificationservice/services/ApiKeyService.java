@@ -7,7 +7,6 @@ import com.assignment.notificationservice.dtos.ApiKeyResponse;
 import com.assignment.notificationservice.exceptions.EntityNotFoundException;
 import com.assignment.notificationservice.models.ApiKey;
 import com.assignment.notificationservice.models.enums.ApiKeyStatus;
-import com.assignment.notificationservice.models.enums.TenantStatus;
 import com.assignment.notificationservice.repositories.ApiKeyRepository;
 import com.assignment.notificationservice.repositories.TenantRepository;
 import com.assignment.notificationservice.utils.Hashing;
@@ -80,7 +79,11 @@ public class ApiKeyService {
 
     /**
      * Verifies a raw key from the {@code X-API-Key} header. Empty for anything malformed,
-     * unknown, revoked, mismatched, or belonging to a suspended tenant.
+     * unknown, revoked or mismatched.
+     *
+     * <p>A suspended tenant's key still authenticates: suspension is a business rule, enforced
+     * by the ingestion service as 403 "tenant suspended". Rejecting it here would surface as
+     * an indistinguishable 401 and send the client hunting for a key problem that isn't there.
      */
     @Transactional
     public Optional<ApiKeyAuthentication> authenticate(String rawKey) {
@@ -108,9 +111,6 @@ public class ApiKeyService {
         apiKey.setLastUsedAt(clock.instant());
         apiKeyRepository.save(apiKey);
 
-        if (apiKey.getTenant().getStatus() != TenantStatus.ACTIVE) {
-            return Optional.empty();
-        }
         return Optional.of(new ApiKeyAuthentication(apiKey.getTenant().getId(), apiKey.getId()));
     }
 
