@@ -1,0 +1,45 @@
+spring:
+  jpa:
+    show-sql: true
+
+notify:
+  dispatcher:
+    auto-start: false
+    tick-interval-ms: 100
+    base-quantum: 5
+    lease-duration-seconds: 5
+    reaper-interval-seconds: 1
+  pools:
+    email:
+      core-size: 2
+      max-size: 2
+      queue-capacity: 20
+    sms:
+      core-size: 2
+      max-size: 2
+      queue-capacity: 20
+    push:
+      core-size: 2
+      max-size: 2
+      queue-capacity: 20
+    in-app:
+      core-size: 1
+      max-size: 1
+      queue-capacity: 10
+  retry:
+    base-delay-ms: 1000
+    max-delay-ms: 10000
+    default-max-attempts: 3
+  mock-providers:
+    email:
+      latency-ms: 0
+      transient-failure-rate: 0.0
+      permanent-failure-rate: 0.0
+    sms:
+      latency-ms: 0
+      transient-failure-rate: 0.0
+      permanent-failure-rate: 0.0
+    push:
+      latency-ms: 0
+      transient-failure-rate: 0.0
+      permanent-failure-rate: 0.0
