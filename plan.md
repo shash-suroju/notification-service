@@ -8,105 +8,149 @@
 
 ## 1. Project skeleton
 
+Gradle build, layered (MVC) package layout under `com.assignment.notificationservice`.
+Code is grouped by **layer**, not by feature: every controller lives in `controllers/`, every
+entity in `models/`, and so on.
+
+Legend: unmarked = implemented · `[H8-11]` etc. = planned, delivered in that block.
+
 ```
 notification-service/
-├── pom.xml
-├── README.md
-├── CLAUDE.md
-├── plan.md                          ← this file
-├── setup.md                         ← original design doc
+├── build.gradle                          — Spring Boot 3.3.5, Java 21, Lombok, Testcontainers
+├── settings.gradle
+├── gradlew / gradlew.bat                 — Gradle 8.14.3 wrapper
+├── gradle/wrapper/
+├── CLAUDE.md                             — AI working agreement (rules)
+├── plan.md                               ← this file
+├── design-patterns.md                    — every pattern used and why
+├── H-TEMPLATES.md                        — templates / channel config / API keys spec
+├── README.md                             [H21-23]
 ├── src/
 │   ├── main/
-│   │   ├── java/com/shashank/notificationservice/
+│   │   ├── java/com/assignment/notificationservice/
 │   │   │   ├── NotificationServiceApplication.java
-│   │   │   ├── config/
-│   │   │   │   ├── ClockConfig.java              — injectable Clock bean
-│   │   │   │   ├── SecurityConfig.java            — HTTP Basic + API key filter chain
-│   │   │   │   ├── ExecutorConfig.java            — per-channel ThreadPoolExecutor beans
-│   │   │   │   └── DispatcherProperties.java      — @ConfigurationProperties for tick/lease/quantum
-│   │   │   ├── common/
-│   │   │   │   ├── GlobalExceptionHandler.java    — RFC 7807 ProblemDetail
-│   │   │   │   ├── PageResponse.java              — generic paginated response DTO
-│   │   │   │   └── exception/                     — EntityNotFoundException, ConflictException, etc.
-│   │   │   ├── tenant/
-│   │   │   │   ├── entity/         Tenant.java
-│   │   │   │   ├── repository/     TenantRepository.java
-│   │   │   │   ├── service/        TenantService.java
-│   │   │   │   ├── dto/            CreateTenantRequest, TenantResponse, UpdateTenantRequest
-│   │   │   │   └── controller/     PlatformAdminController.java
-│   │   │   ├── user/
-│   │   │   │   ├── entity/         AppUser.java, Role.java (enum)
-│   │   │   │   ├── repository/     AppUserRepository.java
-│   │   │   │   └── service/        AppUserService.java
-│   │   │   ├── apikey/
-│   │   │   │   ├── entity/         ApiKey.java, ApiKeyStatus.java
-│   │   │   │   ├── repository/     ApiKeyRepository.java
-│   │   │   │   ├── service/        ApiKeyService.java
-│   │   │   │   └── controller/     ApiKeyController.java
+│   │   │   │
+│   │   │   ├── configs/
+│   │   │   │   ├── ClockConfig.java               — injectable Clock bean
+│   │   │   │   ├── SecurityConfig.java            — RBAC, HTTP Basic + API key filter chain
+│   │   │   │   ├── DispatcherProperties.java      — notify.dispatcher (tick/lease/quantum)
+│   │   │   │   ├── PoolProperties.java            — notify.pools (per-channel pool sizes)
+│   │   │   │   ├── RetryProperties.java           — notify.retry (backoff, max attempts)
+│   │   │   │   ├── MockProviderProperties.java    — notify.mock-providers (latency, failure rates)
+│   │   │   │   └── ExecutorConfig.java            [H11-16] per-channel ThreadPoolExecutor beans
+│   │   │   │
+│   │   │   ├── constants/
+│   │   │   │   ├── ApiPaths.java                  — every URL; shared by controllers + SecurityConfig
+│   │   │   │   ├── SecurityConstants.java         — X-API-Key header, key format, role names
+│   │   │   │   ├── TemplateConstants.java         — SMS length limit, {{variable}} regex
+│   │   │   │   ├── PaginationConstants.java       — default page/size, max size 100
+│   │   │   │   └── EventActors.java               — API | DISPATCHER | REAPER | ADMIN
+│   │   │   │
+│   │   │   ├── controllers/
+│   │   │   │   ├── TemplateController.java        — /api/v1/tenant/templates
+│   │   │   │   ├── ChannelController.java         — /api/v1/tenant/channels
+│   │   │   │   ├── ApiKeyController.java          — /api/v1/tenant/api-keys
+│   │   │   │   ├── PlatformAdminController.java   [H2-5]   /api/v1/admin/tenants
+│   │   │   │   ├── NotificationController.java    [H8-11]  /api/v1/notifications (X-API-Key)
+│   │   │   │   └── ReportController.java          [H19-21]
+│   │   │   │
+│   │   │   ├── dtos/                              — Java records only
+│   │   │   │   ├── CreateTemplateRequest.java, UpdateTemplateRequest.java
+│   │   │   │   ├── TemplateResponse.java
+│   │   │   │   ├── TemplatePreviewRequest.java, TemplatePreviewResponse.java
+│   │   │   │   ├── ChannelConfigResponse.java, UpdateChannelConfigRequest.java
+│   │   │   │   ├── CreateApiKeyRequest.java, ApiKeyCreateResponse.java, ApiKeyResponse.java
+│   │   │   │   ├── ApiKeyAuthentication.java      — internal auth result, never serialised
+│   │   │   │   ├── PageResponse.java              — generic paginated response
+│   │   │   │   ├── CreateTenantRequest.java, UpdateTenantRequest.java, TenantResponse.java  [H2-5]
+│   │   │   │   └── SendRequest.java, SendResponse.java, NotificationDetailResponse.java     [H8-11]
+│   │   │   │
+│   │   │   ├── exceptions/
+│   │   │   │   ├── GlobalExceptionHandler.java    — RFC 7807 ProblemDetail for every error
+│   │   │   │   ├── EntityNotFoundException.java   — 404 (also cross-tenant access)
+│   │   │   │   ├── ConflictException.java         — 409
+│   │   │   │   ├── MissingVariableException.java  — 400, carries variableName
+│   │   │   │   └── SmsBodyTooLongException.java   — 400
+│   │   │   │
+│   │   │   ├── models/                            — JPA entities
+│   │   │   │   ├── Tenant.java                    — @Version optimistic locking
+│   │   │   │   ├── AppUser.java
+│   │   │   │   ├── ApiKey.java
+│   │   │   │   ├── ChannelConfig.java             — settings: jsonb
+│   │   │   │   ├── GlobalChannelLimit.java
+│   │   │   │   ├── PlatformSetting.java
+│   │   │   │   ├── Template.java
+│   │   │   │   ├── Notification.java              — domain object AND queue row
+│   │   │   │   ├── DeliveryAttempt.java
+│   │   │   │   ├── NotificationEvent.java         — audit trail
+│   │   │   │   ├── InAppMessage.java
+│   │   │   │   └── enums/
+│   │   │   │       ├── Channel.java               — EMAIL | SMS | PUSH | IN_APP
+│   │   │   │       ├── NotificationStatus.java    — 7 states
+│   │   │   │       ├── AttemptOutcome.java
+│   │   │   │       ├── TenantStatus.java
+│   │   │   │       ├── Role.java                  — PLATFORM_ADMIN | TENANT_ADMIN
+│   │   │   │       ├── ApiKeyStatus.java
+│   │   │   │       └── AuthMethod.java            — BASIC | API_KEY
+│   │   │   │
+│   │   │   ├── repositories/                      — every tenant-scoped query takes tenantId
+│   │   │   │   ├── TenantRepository.java
+│   │   │   │   ├── AppUserRepository.java
+│   │   │   │   ├── ApiKeyRepository.java
+│   │   │   │   ├── ChannelConfigRepository.java
+│   │   │   │   ├── TemplateRepository.java
+│   │   │   │   ├── GlobalChannelLimitRepository.java   [H16-19]
+│   │   │   │   ├── PlatformSettingRepository.java      [H2-5]
+│   │   │   │   ├── NotificationRepository.java         [H8-11]  incl. SKIP LOCKED claim query
+│   │   │   │   ├── DeliveryAttemptRepository.java      [H11-16]
+│   │   │   │   └── NotificationEventRepository.java    [H8-11]
+│   │   │   │
 │   │   │   ├── security/
-│   │   │   │   ├── ApiKeyAuthFilter.java          — OncePerRequestFilter, X-API-Key header
-│   │   │   │   ├── TenantPrincipal.java           — holds tenantId + role
-│   │   │   │   └── CurrentTenant.java             — static helper: resolve tenant from SecurityContext
-│   │   │   ├── template/
-│   │   │   │   ├── entity/         Template.java
-│   │   │   │   ├── repository/     TemplateRepository.java
-│   │   │   │   ├── service/        TemplateService.java, TemplateRenderer.java
-│   │   │   │   ├── dto/            CreateTemplateRequest, TemplateResponse, PreviewRequest
-│   │   │   │   └── controller/     TemplateController.java
-│   │   │   ├── channel/
-│   │   │   │   ├── entity/         ChannelConfig.java, Channel.java (enum), GlobalChannelLimit.java
-│   │   │   │   ├── repository/     ChannelConfigRepository.java, GlobalChannelLimitRepository.java
-│   │   │   │   ├── service/        ChannelConfigService.java, GlobalLimitService.java
-│   │   │   │   └── controller/     ChannelController.java
-│   │   │   ├── notification/
-│   │   │   │   ├── entity/
-│   │   │   │   │   ├── Notification.java
-│   │   │   │   │   ├── NotificationStatus.java    — enum: 7 states
-│   │   │   │   │   ├── DeliveryAttempt.java
-│   │   │   │   │   ├── NotificationEvent.java     — audit trail
-│   │   │   │   │   └── InAppMessage.java
-│   │   │   │   ├── repository/
-│   │   │   │   │   ├── NotificationRepository.java
-│   │   │   │   │   ├── DeliveryAttemptRepository.java
-│   │   │   │   │   └── NotificationEventRepository.java
-│   │   │   │   ├── statemachine/   NotificationStateMachine.java
-│   │   │   │   ├── ingest/
-│   │   │   │   │   ├── NotificationIngestionService.java
-│   │   │   │   │   ├── RecipientValidator.java
-│   │   │   │   │   └── RequestHasher.java
-│   │   │   │   ├── api/
-│   │   │   │   │   ├── NotificationController.java   — send API (X-API-Key)
-│   │   │   │   │   └── dto/       SendRequest, SendResponse, NotificationDetailResponse
-│   │   │   │   └── report/
-│   │   │   │       ├── ReportService.java
-│   │   │   │       └── ReportController.java
-│   │   │   ├── dispatch/
-│   │   │   │   ├── DispatchScheduler.java         — tick loop (scheduled OR manual)
-│   │   │   │   ├── FairTenantSelector.java        — weighted round-robin
-│   │   │   │   ├── WorkClaimer.java               — SKIP LOCKED batch claim
-│   │   │   │   ├── ChannelWorkerPools.java        — map of Channel → ThreadPoolExecutor
-│   │   │   │   ├── DeliveryWorker.java            — Runnable: send + record
-│   │   │   │   ├── OutcomeRecorder.java           — fenced write + attempt + event
-│   │   │   │   ├── LeaseReaper.java               — recovers stuck PROCESSING rows
-│   │   │   │   └── ratelimit/
-│   │   │   │       ├── TokenBucket.java
-│   │   │   │       └── RateLimiterRegistry.java
-│   │   │   ├── retry/
-│   │   │   │   ├── RetryPolicy.java               — interface
-│   │   │   │   ├── ExponentialBackoffWithJitter.java
-│   │   │   │   └── FailureClassifier.java
-│   │   │   └── provider/
-│   │   │       ├── ChannelSender.java             — interface
-│   │   │       ├── SendResult.java                — sealed: Success | Transient | Permanent
-│   │   │       ├── OutboundMessage.java           — record
-│   │   │       ├── ChannelSenderRegistry.java
-│   │   │       ├── MockEmailSender.java
-│   │   │       ├── MockSmsSender.java
-│   │   │       ├── MockPushSender.java
-│   │   │       └── InAppSender.java
+│   │   │   │   ├── ApiKeyAuthFilter.java          — OncePerRequestFilter on /api/v1/notifications/**
+│   │   │   │   ├── TenantPrincipal.java           — one principal for Basic and API key auth
+│   │   │   │   └── CurrentTenant.java             — resolve tenantId from the SecurityContext
+│   │   │   │
+│   │   │   ├── services/
+│   │   │   │   ├── TemplateService.java           — versioning: edit = new version
+│   │   │   │   ├── TemplateRenderer.java          — {{var}} substitution, HTML escape, SMS length
+│   │   │   │   ├── ChannelConfigService.java
+│   │   │   │   ├── ApiKeyService.java             — issue / list / revoke / authenticate
+│   │   │   │   ├── AppUserDetailsService.java     — HTTP Basic user lookup
+│   │   │   │   ├── NotificationStateMachine.java  — transition whitelist (pure static)
+│   │   │   │   ├── TenantService.java                  [H2-5]
+│   │   │   │   ├── GlobalLimitService.java             [H16-19]
+│   │   │   │   ├── NotificationIngestionService.java   [H8-11]
+│   │   │   │   ├── RecipientValidator.java             [H8-11]
+│   │   │   │   ├── ReportService.java                  [H19-21]
+│   │   │   │   ├── dispatch/                           [H11-16]
+│   │   │   │   │   ├── DispatchScheduler.java     — tick loop (scheduled OR manual)
+│   │   │   │   │   ├── FairTenantSelector.java    — weighted round-robin
+│   │   │   │   │   ├── WorkClaimer.java           — SKIP LOCKED batch claim
+│   │   │   │   │   ├── ChannelWorkerPools.java    — map of Channel → ThreadPoolExecutor
+│   │   │   │   │   ├── DeliveryWorker.java        — Runnable: send + record
+│   │   │   │   │   ├── OutcomeRecorder.java       — fenced write + attempt + event
+│   │   │   │   │   └── LeaseReaper.java           — recovers stuck PROCESSING rows
+│   │   │   │   ├── ratelimit/                          [H16-19]
+│   │   │   │   │   ├── TokenBucket.java
+│   │   │   │   │   └── RateLimiterRegistry.java
+│   │   │   │   ├── retry/                              [H16-19]
+│   │   │   │   │   ├── RetryPolicy.java           — interface
+│   │   │   │   │   ├── ExponentialBackoffWithJitter.java
+│   │   │   │   │   └── FailureClassifier.java
+│   │   │   │   └── provider/                           [H11-16]
+│   │   │   │       ├── ChannelSender.java         — interface (strategy)
+│   │   │   │       ├── SendResult.java            — sealed: Success | Transient | Permanent
+│   │   │   │       ├── OutboundMessage.java       — record
+│   │   │   │       ├── ChannelSenderRegistry.java
+│   │   │   │       ├── MockEmailSender.java, MockSmsSender.java, MockPushSender.java
+│   │   │   │       └── InAppSender.java
+│   │   │   │
+│   │   │   └── utils/
+│   │   │       ├── Hashing.java                   — SHA-256 hex
+│   │   │       └── RequestHasher.java             — idempotency request fingerprint
+│   │   │
 │   │   └── resources/
 │   │       ├── application.yml
-│   │       ├── application-test.yml
 │   │       └── db/migration/
 │   │           ├── V001__create_tenant.sql
 │   │           ├── V002__create_app_user.sql
@@ -119,35 +163,63 @@ notification-service/
 │   │           ├── V009__create_delivery_attempt.sql
 │   │           ├── V010__create_notification_event.sql
 │   │           ├── V011__create_in_app_message.sql
-│   │           └── V099__seed_dev_data.sql
+│   │           └── V099__seed_dev_data.sql       — dev users (password123), Acme test API key
+│   │
 │   └── test/
-│       └── java/com/shashank/notificationservice/
-│           ├── BaseIntegrationTest.java           — Testcontainers + shared config
+│       ├── resources/
+│       │   └── application-test.yml           — auto-start off, small pools, fast retries
+│       └── java/com/assignment/notificationservice/
+│           ├── BaseIntegrationTest.java           — singleton Testcontainers PG + tenant helpers
+│           ├── ApplicationSmokeTest.java          — context, migrations, seed data, jsonb
+│           ├── support/
+│           │   ├── MutableClock.java              — settable/advanceable Clock
+│           │   ├── TestClockConfig.java           — swaps MutableClock in as the Clock bean
+│           │   ├── TestTenant.java                — credentials for a test-created tenant
+│           │   └── ProgrammableSender.java        [H11-16] scripted per-notification results
 │           ├── unit/
-│           │   ├── TemplateRendererTest.java
 │           │   ├── NotificationStateMachineTest.java
-│           │   ├── ExponentialBackoffWithJitterTest.java
-│           │   ├── TokenBucketTest.java
-│           │   ├── FairTenantSelectorTest.java
-│           │   ├── FailureClassifierTest.java
-│           │   └── RequestHasherTest.java
+│           │   ├── GlobalExceptionHandlerTest.java
+│           │   ├── TemplateRendererTest.java
+│           │   ├── RequestHasherTest.java
+│           │   ├── ExponentialBackoffWithJitterTest.java   [H16-19]
+│           │   ├── TokenBucketTest.java                    [H16-19]
+│           │   ├── FairTenantSelectorTest.java             [H16-19]
+│           │   └── FailureClassifierTest.java              [H16-19]
 │           └── integration/
-│               ├── TenantApiTest.java
 │               ├── TemplateApiTest.java
-│               ├── IngestionIdempotencyTest.java
-│               ├── DispatcherHappyPathTest.java
-│               ├── ConcurrentClaimTest.java
-│               ├── RetryFlowTest.java
-│               ├── LeaseRecoveryTest.java
-│               ├── RateLimitTest.java
-│               ├── FairnessTest.java
-│               └── RbacIsolationTest.java
-└── http/
+│               ├── ChannelConfigApiTest.java
+│               ├── ApiKeyApiTest.java
+│               ├── RbacIsolationTest.java
+│               ├── TenantApiTest.java                      [H2-5]
+│               ├── IngestionIdempotencyTest.java           [H8-11]
+│               ├── DispatcherHappyPathTest.java            [H11-16]
+│               ├── ConcurrentClaimTest.java                [H11-16]
+│               ├── LeaseRecoveryTest.java                  [H11-16]
+│               ├── RetryFlowTest.java                      [H16-19]
+│               ├── RateLimitTest.java                      [H16-19]
+│               └── FairnessTest.java                       [H16-19]
+└── http/                                                   [H21-23]
     ├── 01-platform-admin.http
     ├── 02-tenant-admin.http
     ├── 03-send-notifications.http
     └── 04-reports.http
 ```
+
+**Where new code goes:**
+
+| Kind of class | Package |
+|---|---|
+| REST endpoint | `controllers` |
+| Business logic / Spring `@Service` | `services` (sub-packages for dispatch, ratelimit, retry, provider) |
+| Spring Data repository | `repositories` |
+| JPA entity | `models` |
+| Enum | `models.enums` |
+| Request / response record | `dtos` |
+| Exception or exception mapping | `exceptions` |
+| `@Configuration` / `@ConfigurationProperties` | `configs` |
+| Shared literal (path, header, limit) | `constants` |
+| Stateless static helper | `utils` |
+| Filter, principal, tenant resolution | `security` |
 
 ---
 
@@ -1149,7 +1221,7 @@ notify:
 
 ## 12. First commit checklist (H0–2 deliverable)
 
-After this block, running `./mvnw test` must pass with:
+After this block, running `./gradlew test` must pass with:
 - [x] Spring context loads with Testcontainers Postgres
 - [x] All 11 Flyway migrations apply cleanly
 - [x] Clock bean is injectable and MutableClock works in tests

@@ -5,12 +5,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import com.assignment.notificationservice.channel.entity.ChannelConfig;
-import com.assignment.notificationservice.common.Channel;
-import com.assignment.notificationservice.tenant.entity.Tenant;
+import com.assignment.notificationservice.models.ChannelConfig;
+import com.assignment.notificationservice.models.Tenant;
+import com.assignment.notificationservice.models.enums.Channel;
+import com.assignment.notificationservice.utils.Hashing;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -26,10 +28,15 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class ApplicationSmokeTest extends BaseIntegrationTest {
 
+    private static final UUID ACME_ID = UUID.fromString("10000000-0000-0000-0000-000000000001");
     private static final UUID GLOBEX_ID = UUID.fromString("10000000-0000-0000-0000-000000000002");
+    private static final String SEED_ACME_API_KEY = "ntfy_acme1234_testkey12345678901234567890ab";
 
     @Autowired
     private ApplicationContext context;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -80,11 +87,13 @@ class ApplicationSmokeTest extends BaseIntegrationTest {
                 "notification_event", "in_app_message");
     }
 
+    // The database is shared with every other integration test class, so these assertions
+    // are scoped to the seeded rows rather than counting whole tables.
     @Test
     void seedDataLoads() {
         List<String> slugs = jdbcTemplate.queryForList(
-                "SELECT slug FROM tenant ORDER BY slug", String.class);
-        assertThat(slugs).containsExactly("acme", "globex");
+                "SELECT slug FROM tenant", String.class);
+        assertThat(slugs).contains("acme", "globex");
 
         Integer admins = jdbcTemplate.queryForObject(
                 "SELECT count(*) FROM app_user WHERE role = 'PLATFORM_ADMIN'", Integer.class);
@@ -94,9 +103,28 @@ class ApplicationSmokeTest extends BaseIntegrationTest {
                 "SELECT count(*) FROM global_channel_limit", Integer.class);
         assertThat(channelLimits).isEqualTo(4);
 
-        Integer templates = jdbcTemplate.queryForObject(
-                "SELECT count(*) FROM template", Integer.class);
-        assertThat(templates).isEqualTo(4);
+        Integer seededTemplates = jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM template WHERE tenant_id IN (?, ?)", Integer.class,
+                ACME_ID, GLOBEX_ID);
+        assertThat(seededTemplates).isEqualTo(4);
+    }
+
+    @Test
+    void seededUsersCanLogInWithTheDocumentedPassword() {
+        List<String> hashes = jdbcTemplate.queryForList(
+                "SELECT password_hash FROM app_user WHERE username IN ('platform-admin', 'acme-admin', 'globex-admin')",
+                String.class);
+
+        assertThat(hashes).hasSize(3)
+                .allSatisfy(hash -> assertThat(passwordEncoder.matches(SEED_PASSWORD, hash)).isTrue());
+    }
+
+    @Test
+    void seededAcmeApiKeyHashMatchesTheDocumentedKey() {
+        String storedHash = jdbcTemplate.queryForObject(
+                "SELECT key_hash FROM api_key WHERE prefix = 'acme1234'", String.class);
+
+        assertThat(storedHash).isEqualTo(Hashing.sha256Hex(SEED_ACME_API_KEY));
     }
 
     /**

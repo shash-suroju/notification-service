@@ -17,9 +17,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.assignment.notificationservice.common.GlobalExceptionHandler;
-import com.assignment.notificationservice.common.exception.ConflictException;
-import com.assignment.notificationservice.common.exception.EntityNotFoundException;
+import com.assignment.notificationservice.exceptions.ConflictException;
+import com.assignment.notificationservice.exceptions.EntityNotFoundException;
+import com.assignment.notificationservice.exceptions.GlobalExceptionHandler;
+import com.assignment.notificationservice.exceptions.MissingVariableException;
+import com.assignment.notificationservice.exceptions.SmsBodyTooLongException;
 
 import java.util.Set;
 
@@ -81,7 +83,40 @@ class GlobalExceptionHandlerTest {
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.status").value(400))
                 .andExpect(jsonPath("$.title").value("Validation Failed"))
-                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("slug")));
+                .andExpect(jsonPath("$.detail").value("Validation failed for 1 field(s)"))
+                .andExpect(jsonPath("$.fieldErrors.slug").exists());
+    }
+
+    @Test
+    void missingTemplateVariableBecomes400WithTheVariableName() throws Exception {
+        mockMvc.perform(get("/boom/missing-variable"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.title").value("Missing Template Variable"))
+                .andExpect(jsonPath("$.variableName").value("orderId"));
+    }
+
+    @Test
+    void smsBodyTooLongBecomes400() throws Exception {
+        mockMvc.perform(get("/boom/sms-too-long"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("SMS body too long: 481 chars (max 480)"));
+    }
+
+    @Test
+    void illegalArgumentBecomes400() throws Exception {
+        mockMvc.perform(get("/boom/illegal-argument"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("Subject is required for EMAIL templates"));
+    }
+
+    @Test
+    void malformedJsonBodyBecomes400NotA500() throws Exception {
+        mockMvc.perform(post("/boom/validate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{not json"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
     }
 
     @Test
@@ -171,6 +206,21 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/unexpected")
         void unexpected() {
             throw new RuntimeException("internal detail that must not leak");
+        }
+
+        @GetMapping("/missing-variable")
+        void missingVariable() {
+            throw new MissingVariableException("orderId");
+        }
+
+        @GetMapping("/sms-too-long")
+        void smsTooLong() {
+            throw new SmsBodyTooLongException(481, 480);
+        }
+
+        @GetMapping("/illegal-argument")
+        void illegalArgument() {
+            throw new IllegalArgumentException("Subject is required for EMAIL templates");
         }
     }
 }

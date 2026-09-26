@@ -1,9 +1,9 @@
 package com.assignment.notificationservice.unit;
 
-import com.assignment.notificationservice.common.Channel;
-import com.assignment.notificationservice.notification.entity.Notification;
-import com.assignment.notificationservice.notification.entity.NotificationStatus;
-import com.assignment.notificationservice.notification.statemachine.NotificationStateMachine;
+import com.assignment.notificationservice.models.Notification;
+import com.assignment.notificationservice.models.enums.Channel;
+import com.assignment.notificationservice.models.enums.NotificationStatus;
+import com.assignment.notificationservice.services.NotificationStateMachine;
 import com.assignment.notificationservice.support.MutableClock;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,13 +18,13 @@ import java.util.Set;
 
 import org.junit.jupiter.api.DynamicTest;
 
-import static com.assignment.notificationservice.notification.entity.NotificationStatus.CANCELLED;
-import static com.assignment.notificationservice.notification.entity.NotificationStatus.FAILED;
-import static com.assignment.notificationservice.notification.entity.NotificationStatus.PENDING;
-import static com.assignment.notificationservice.notification.entity.NotificationStatus.PROCESSING;
-import static com.assignment.notificationservice.notification.entity.NotificationStatus.RETRYING;
-import static com.assignment.notificationservice.notification.entity.NotificationStatus.SCHEDULED;
-import static com.assignment.notificationservice.notification.entity.NotificationStatus.SENT;
+import static com.assignment.notificationservice.models.enums.NotificationStatus.CANCELLED;
+import static com.assignment.notificationservice.models.enums.NotificationStatus.FAILED;
+import static com.assignment.notificationservice.models.enums.NotificationStatus.PENDING;
+import static com.assignment.notificationservice.models.enums.NotificationStatus.PROCESSING;
+import static com.assignment.notificationservice.models.enums.NotificationStatus.RETRYING;
+import static com.assignment.notificationservice.models.enums.NotificationStatus.SCHEDULED;
+import static com.assignment.notificationservice.models.enums.NotificationStatus.SENT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

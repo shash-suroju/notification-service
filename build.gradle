@@ -49,6 +49,8 @@ dependencies {
     testImplementation 'org.testcontainers:junit-jupiter'
     testImplementation 'org.testcontainers:postgresql'
     testImplementation 'org.awaitility:awaitility'
+    // TestRestTemplate otherwise falls back to HttpURLConnection, which throws on a 401 to a POST
+    testImplementation 'org.apache.httpcomponents.client5:httpclient5'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
