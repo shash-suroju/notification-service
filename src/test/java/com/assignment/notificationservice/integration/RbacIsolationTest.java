@@ -111,9 +111,8 @@ class RbacIsolationTest extends BaseIntegrationTest {
 
     @Test
     void platformAdmin_passesAuthorizationOnAdminEndpoints() {
-        // No admin controller exists yet: authorised → routed → 404, rather than 401/403.
         assertThat(asPlatformAdmin().getForEntity(ADMIN_TENANTS, String.class).getStatusCode())
-                .isEqualTo(HttpStatus.NOT_FOUND);
+                .isEqualTo(HttpStatus.OK);
     }
 
     @Test

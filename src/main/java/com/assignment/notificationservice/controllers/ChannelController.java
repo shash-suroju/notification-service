@@ -16,7 +16,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-import java.util.Locale;
 
 @RestController
 @RequestMapping(ApiPaths.TENANT_CHANNELS)
@@ -34,14 +33,6 @@ public class ChannelController {
     @PutMapping("/{channel}")
     public ChannelConfigResponse update(@PathVariable String channel,
                                         @Valid @RequestBody UpdateChannelConfigRequest request) {
-        return channelConfigService.upsert(CurrentTenant.resolve(), parseChannel(channel), request);
-    }
-
-    private static Channel parseChannel(String raw) {
-        try {
-            return Channel.valueOf(raw.toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Unknown channel: " + raw);
-        }
+        return channelConfigService.upsert(CurrentTenant.resolve(), Channel.fromPath(channel), request);
     }
 }

@@ -147,7 +147,7 @@ class CancelNotificationTest extends BaseIntegrationTest {
 
     private List<Map<String, Object>> events(String id) {
         return jdbcTemplate.queryForList(
-                "SELECT * FROM notification_event WHERE notification_id = ? ORDER BY occurred_at, to_status DESC",
+                "SELECT * FROM notification_event WHERE notification_id = ? ORDER BY occurred_at, seq",
                 UUID.fromString(id));
     }
 }

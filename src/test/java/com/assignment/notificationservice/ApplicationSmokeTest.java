@@ -69,10 +69,10 @@ class ApplicationSmokeTest extends BaseIntegrationTest {
                 "SELECT version FROM flyway_schema_history WHERE success = true ORDER BY installed_rank",
                 String.class);
 
-        // V001..V011 plus the V099 dev seed
+        // V001..V011, the V099 dev seed, then V100+ for changes made after the seed existed
         assertThat(versions).containsExactly(
                 "001", "002", "003", "004", "005", "006",
-                "007", "008", "009", "010", "011", "099");
+                "007", "008", "009", "010", "011", "099", "100");
     }
 
     @Test

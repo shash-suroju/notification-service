@@ -61,6 +61,10 @@ public class NotificationEvent {
     @Column(name = "occurred_at", nullable = false)
     private Instant occurredAt;
 
+    /** Database-assigned insert order; breaks ties between events sharing an occurred_at. */
+    @Column(name = "seq", insertable = false, updatable = false)
+    private Long seq;
+
     public NotificationEvent(Notification notification, UUID tenantId,
                              NotificationStatus fromStatus, NotificationStatus toStatus,
                              String reason, String actor, Instant occurredAt) {

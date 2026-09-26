@@ -12,5 +12,6 @@ import java.util.UUID;
  */
 public interface NotificationEventRepository extends JpaRepository<NotificationEvent, UUID> {
 
-    List<NotificationEvent> findByNotificationIdOrderByOccurredAtAsc(UUID notificationId);
+    /** The audit timeline in true insert order ({@code seq} breaks same-instant ties). */
+    List<NotificationEvent> findByNotificationIdOrderByOccurredAtAscSeqAsc(UUID notificationId);
 }

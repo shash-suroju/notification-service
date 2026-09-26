@@ -13,6 +13,9 @@ public final class ApiPaths {
 
     /** Platform-admin console (PLATFORM_ADMIN, HTTP Basic). */
     public static final String ADMIN = API_V1 + "/admin";
+    public static final String ADMIN_TENANTS = "/tenants";
+    public static final String ADMIN_GLOBAL_LIMITS = "/global-limits";
+    public static final String ADMIN_SETTINGS = "/settings";
 
     /** Tenant-admin console (TENANT_ADMIN, HTTP Basic). */
     public static final String TENANT = API_V1 + "/tenant";

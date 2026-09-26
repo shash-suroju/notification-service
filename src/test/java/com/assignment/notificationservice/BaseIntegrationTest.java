@@ -10,6 +10,7 @@ import com.assignment.notificationservice.repositories.TenantRepository;
 import com.assignment.notificationservice.support.MutableClock;
 import com.assignment.notificationservice.support.TestClockConfig;
 import com.assignment.notificationservice.support.TestSender;
+import com.assignment.notificationservice.support.TestSenderConfig;
 import com.assignment.notificationservice.support.TestTenant;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,7 +50,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
-@Import(TestClockConfig.class)
+@Import({TestClockConfig.class, TestSenderConfig.class})
 public abstract class BaseIntegrationTest {
 
     /** Password for every user created by {@link #setupTenant}. */

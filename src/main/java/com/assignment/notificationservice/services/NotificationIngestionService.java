@@ -234,7 +234,7 @@ public class NotificationIngestionService {
                 n.getCreatedAt(), n.getUpdatedAt(),
                 attemptRepository.findByNotificationIdOrderByAttemptNoAsc(n.getId()).stream()
                         .map(NotificationMapper::toDto).toList(),
-                eventRepository.findByNotificationIdOrderByOccurredAtAsc(n.getId()).stream()
+                eventRepository.findByNotificationIdOrderByOccurredAtAscSeqAsc(n.getId()).stream()
                         .map(NotificationMapper::toDto).toList());
     }
 
